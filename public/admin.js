@@ -102,7 +102,7 @@ async function loadProducts() {
 function renderProductsTable(products) {
   const tbody = document.getElementById('products-tbody');
   tbody.innerHTML = products.map(p => {
-    const thumbs = (p.images || []).slice(0, 3).map(img => `<img src="/images/${img.filename}">`).join('');
+    const thumbs = (p.images || []).slice(0, 3).map(img => `<img src="${API}/images/${img.filename}">`).join('');
     const low = p.stock <= 3;
     return `
     <tr data-id="${p.id}">
@@ -167,7 +167,7 @@ window.openEditProduct = (p) => {
   const cont = document.getElementById('existing-images');
   if (p.images && p.images.length) {
     wrap.style.display = 'flex';
-    cont.innerHTML = p.images.map(img => `<img src="/images/${img.filename}" title="Clic para eliminar" onclick="deleteProductImage(${p.id}, ${img.id}, this)">`).join('');
+    cont.innerHTML = p.images.map(img => `<img src="${API}/images/${img.filename}" title="Clic para eliminar" onclick="deleteProductImage(${p.id}, ${img.id}, this)">`).join('');
   } else {
     wrap.style.display = 'none';
   }
