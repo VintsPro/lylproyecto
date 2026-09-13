@@ -1,6 +1,12 @@
 <!doctype html>
 <html lang="es">
 <head>
+<script>
+    // Si no ha pasado por el login, lo regresa a la pantalla de acceso
+    if (sessionStorage.getItem("admin_authenticated") !== "true") {
+        window.location.href = "login.html";
+    }
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>L$L Makeup — Panel</title>

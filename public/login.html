@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso Admin - Inventario DACA</title>
+    <style>
+        body {
+            background: #FBF1E9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Poppins', sans-serif;
+        }
+        .login-card {
+            background: #FFF8F2;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 380px;
+            border: 1px solid #E9D9CC;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        h2 {
+            color: #A83A5B;
+            margin-top: 0;
+        }
+        p {
+            font-size: 13px;
+            color: #7A625E;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 15px 0;
+            border: 1px solid #E9D9CC;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 15px;
+            outline: none;
+        }
+        button {
+            background: #A83A5B;
+            color: #fff;
+            border: none;
+            padding: 12px;
+            width: 100%;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #92304c;
+        }
+        #errorMsg {
+            color: #D6577E;
+            font-size: 13px;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h2>Panel Protegido</h2>
+        <p>Ingresa tu clave para acceder al inventario</p>
+        <input type="password" id="passInput" placeholder="Contraseña secreta">
+        <button id="loginBtn">Entrar</button>
+        <div id="errorMsg">Contraseña incorrecta</div>
+    </div>
+
+    <script>
+        // CAMBIA AQUÍ TU CONTRASEÑA SECRETA
+        const ADMIN_PASSWORD = "TuClaveSecreta123"; 
+
+        const loginBtn = document.getElementById("loginBtn");
+        const passInput = document.getElementById("passInput");
+        const errorMsg = document.getElementById("errorMsg");
+
+        function validar() {
+            if (passInput.value === ADMIN_PASSWORD) {
+                sessionStorage.setItem("admin_authenticated", "true");
+                window.location.href = "admin.html"; // Te redirige al panel si es correcta
+            } else {
+                errorMsg.style.display = "block";
+                passInput.value = "";
+            }
+        }
+
+        loginBtn.addEventListener("click", validar);
+        passInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") validar();
+        });
+    </script>
+</body>
+</html>
