@@ -268,20 +268,7 @@
   function slugify(text) { return text.toString().toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w\-]+/g, ''); }
 
   // Cargar catálogo desde Render y armar el DOM
-  async function fetchCatalog() {
-    var container = document.getElementById('catalog-container');
-    try {
-      var res = await fetch(API_PRODUCTS);
-      if(!res.ok) throw new Error("Error al obtener productos");
-      var products = await res.json();
-
-      if(!products || products.length === 0) {
-        container.innerHTML = '<div class="loading-msg">No hay productos disponibles por el momento.</div>';
-        return;
-      }
-
-      // Agrupar productos por categoría/marca
-      async function fetchCatalog() {
+ async function fetchCatalog() {
     var container = document.getElementById('catalog-container');
     try {
       var res = await fetch(API_PRODUCTS);
