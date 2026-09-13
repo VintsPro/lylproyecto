@@ -347,7 +347,7 @@
           } else if(p.image_url) {
             images = [p.image_url];
           } else {
-            images = ['https://via.placeholder.com/300x260?text=L%26L+Makeup'];
+            images = ['https://placehold.co/300x260/FFF8F2/2E1F22?text=L%26L+Makeup'];
           }
 
           var firstImg = images[0];
@@ -355,7 +355,7 @@
 
           html += '<figure class="card">'
                 + '  <div class="imgwrap" data-images=\'' + imagesJson + '\'>'
-                + '    <img src="' + firstImg + '" loading="lazy" alt="' + p.name + '" onerror="this.src=\'https://via.placeholder.com/300x260?text=L%26L+Makeup\'">'
+                + '    <img src="' + firstImg + '" loading="lazy" alt="' + p.name + '" onerror="this.src=\'https://placehold.co/300x260/FFF8F2/2E1F22?text=L%26L+Makeup\'">'
                 + (images.length > 1 ? '    <button type="button" class="car-btn prev" aria-label="Anterior">‹</button><button type="button" class="car-btn next" aria-label="Siguiente">›</button>' : '')
                 + '  </div>'
                 + '  <figcaption>'
