@@ -194,7 +194,7 @@
   </div>
 </section>
 
-<!-- Contenedor dinámico donde Render renderizará los productos por categoría -->
+<!-- Contenedor dinámico donde se renderizarán los productos por categoría -->
 <div id="catalog-container">
   <div class="loading-msg">Cargando productos del catálogo...</div>
 </div>
@@ -267,8 +267,38 @@
   function formatCOP(n){ return "$" + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, "."); }
   function slugify(text) { return text.toString().toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w\-]+/g, ''); }
 
+  // Inicializar carruseles de imágenes
+  function initCarousels() {
+    document.querySelectorAll('.card .imgwrap').forEach(function(wrap){
+      var btnPrev = wrap.querySelector('.car-btn.prev');
+      var btnNext = wrap.querySelector('.car-btn.next');
+      if(!btnPrev || !btnNext) return;
+      
+      var images = [];
+      try {
+        images = JSON.parse(wrap.getAttribute('data-images'));
+      } catch(e) { images = []; }
+      
+      if(images.length <= 1) return;
+      var currentIndex = 0;
+      var imgTag = wrap.querySelector('img');
+
+      btnNext.addEventListener('click', function(e){
+        e.preventDefault();
+        currentIndex = (currentIndex + 1) % images.length;
+        imgTag.src = images[currentIndex];
+      });
+
+      btnPrev.addEventListener('click', function(e){
+        e.preventDefault();
+        currentIndex = (currentIndex - 1 + images.length) % images.length;
+        imgTag.src = images[currentIndex];
+      });
+    });
+  }
+
   // Cargar catálogo desde Render y armar el DOM
- async function fetchCatalog() {
+  async function fetchCatalog() {
     var container = document.getElementById('catalog-container');
     try {
       var res = await fetch(API_PRODUCTS);
@@ -280,7 +310,7 @@
         return;
       }
 
-      // Agrupar productos por la categoría real de la base de datos (evita el "General")
+      // Agrupar productos por la categoría real de la base de datos
       var categories = {};
       products.forEach(function(p){
         var cat = p.category_name || p.category || p.brand || "Catálogo General";
