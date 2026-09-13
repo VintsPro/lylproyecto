@@ -75,25 +75,33 @@
     </div>
 
     <script>
-        // CAMBIA AQUÍ TU CONTRASEÑA SECRETA
-        const ADMIN_PASSWORD = "TuClaveSecreta123"; 
+        // Contraseña actual configurada: DacaAdmin2026
+        const _0x9f21 = ["c2Vzc2lvblN0b3JhZ2U=", "dHJ1ZQ==", "YWRtaW5fYXV0aGVudGljYXRlZA==", "YWRtaW4uaHRtbA=="];
+        const _0x3b8a = "RGFjYUFkbWluMjAyNg=="; 
 
-        const loginBtn = document.getElementById("loginBtn");
-        const passInput = document.getElementById("passInput");
-        const errorMsg = document.getElementById("errorMsg");
+        const btn = document.getElementById("loginBtn");
+        const inp = document.getElementById("passInput");
+        const err = document.getElementById("errorMsg");
+
+        function _0x4c2e(b64) {
+            return atob(b64);
+        }
 
         function validar() {
-            if (passInput.value === ADMIN_PASSWORD) {
-                sessionStorage.setItem("admin_authenticated", "true");
-                window.location.href = "admin.html"; // Te redirige al panel si es correcta
+            if (btoa(inp.value) === _0x3b8a) {
+                let s = _0x4c2e(_0x9f21[0]);
+                let k = _0x4c2e(_0x9f21[2]);
+                let v = _0x4c2e(_0x9f21[1]);
+                window[s].setItem(k, v);
+                window.location.href = _0x4c2e(_0x9f21[3]);
             } else {
-                errorMsg.style.display = "block";
-                passInput.value = "";
+                err.style.display = "block";
+                inp.value = "";
             }
         }
 
-        loginBtn.addEventListener("click", validar);
-        passInput.addEventListener("keypress", (e) => {
+        btn.addEventListener("click", validar);
+        inp.addEventListener("keypress", (e) => {
             if (e.key === "Enter") validar();
         });
     </script>
