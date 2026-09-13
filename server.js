@@ -4,7 +4,7 @@ const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { sql, poolPromise } = require('./db');
+const pool = require('./db'); // Conexión a PostgreSQL (Supabase)
 const { buildCatalogHtml } = require('./catalogTemplate');
 
 const app = express();
@@ -13,19 +13,20 @@ app.use(express.json());
 
 // Carpetas públicas: /images sirve las fotos, /public sirve el panel admin
 const IMAGES_DIR = path.join(__dirname, 'images');
-const ASSETS_DIR = path.join(__dirname, 'assets'); // portada, og-image (imágenes del sitio, no de productos)
+const ASSETS_DIR = path.join(__dirname, 'assets');
 const OUTPUT_DIR = path.join(__dirname, 'output');
-if (!fs.existsSync(IMAGES_DIR)) fs.mkdirSync(IMAGES_DIR);
-if (!fs.existsSync(ASSETS_DIR)) fs.mkdirSync(ASSETS_DIR);
-if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR);
-if (!fs.existsSync(path.join(OUTPUT_DIR, 'images'))) fs.mkdirSync(path.join(OUTPUT_DIR, 'images'));
-if (!fs.existsSync(path.join(OUTPUT_DIR, 'assets'))) fs.mkdirSync(path.join(OUTPUT_DIR, 'assets'));
+
+if (!fs.existsSync(IMAGES_DIR)) fs.mkdirSync(IMAGES_DIR, { recursive: true });
+if (!fs.existsSync(ASSETS_DIR)) fs.mkdirSync(ASSETS_DIR, { recursive: true });
+if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+if (!fs.existsSync(path.join(OUTPUT_DIR, 'images'))) fs.mkdirSync(path.join(OUTPUT_DIR, 'images'), { recursive: true });
+if (!fs.existsSync(path.join(OUTPUT_DIR, 'assets'))) fs.mkdirSync(path.join(OUTPUT_DIR, 'assets'), { recursive: true });
 
 app.use('/images', express.static(IMAGES_DIR));
 app.use('/assets', express.static(ASSETS_DIR));
 app.use('/', express.static(path.join(__dirname, 'public')));
 
-// Subida de imágenes: se guardan directo en /images con nombre único
+// Subida de imágenes local (multer)
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, IMAGES_DIR),
   filename: (req, file, cb) => {
@@ -40,18 +41,16 @@ const upload = multer({ storage });
 // Listar / buscar categorías
 app.get('/api/categories', async (req, res) => {
   try {
-    const pool = await poolPromise;
     const search = req.query.search || '';
-    const result = await pool.request()
-      .input('search', sql.NVarChar, `%${search}%`)
-      .query(`
-        SELECT c.id, c.name, c.created_at,
-               (SELECT COUNT(*) FROM products p WHERE p.category_id = c.id) AS product_count
-        FROM categories c
-        WHERE c.name LIKE @search
-        ORDER BY c.name ASC
-      `);
-    res.json(result.recordset);
+    const query = `
+      SELECT c.id, c.name, c.created_at,
+             (SELECT COUNT(*) FROM products p WHERE p.category_id = c.id) AS product_count
+      FROM categories c
+      WHERE c.name ILIKE $1
+      ORDER BY c.name ASC
+    `;
+    const result = await pool.query(query, [`%${search}%`]);
+    res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -62,13 +61,12 @@ app.post('/api/categories', async (req, res) => {
   try {
     const { name } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('name', sql.NVarChar, name.trim())
-      .query('INSERT INTO categories (name) OUTPUT INSERTED.* VALUES (@name)');
-    res.status(201).json(result.recordset[0]);
+    
+    const query = 'INSERT INTO categories (name) VALUES ($1) RETURNING *';
+    const result = await pool.query(query, [name.trim()]);
+    res.status(201).json(result.rows[0]);
   } catch (err) {
-    if (err.message.includes('UNIQUE')) return res.status(400).json({ error: 'Esa categoría ya existe' });
+    if (err.code === '23505') return res.status(400).json({ error: 'Esa categoría ya existe' });
     res.status(500).json({ error: err.message });
   }
 });
@@ -78,11 +76,9 @@ app.put('/api/categories/:id', async (req, res) => {
   try {
     const { name } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
-    const pool = await poolPromise;
-    await pool.request()
-      .input('id', sql.Int, req.params.id)
-      .input('name', sql.NVarChar, name.trim())
-      .query('UPDATE categories SET name = @name WHERE id = @id');
+    
+    const query = 'UPDATE categories SET name = $1 WHERE id = $2';
+    await pool.query(query, [name.trim(), req.params.id]);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -92,14 +88,11 @@ app.put('/api/categories/:id', async (req, res) => {
 // Eliminar categoría (bloquea si tiene productos)
 app.delete('/api/categories/:id', async (req, res) => {
   try {
-    const pool = await poolPromise;
-    const check = await pool.request()
-      .input('id', sql.Int, req.params.id)
-      .query('SELECT COUNT(*) AS total FROM products WHERE category_id = @id');
-    if (check.recordset[0].total > 0) {
+    const check = await pool.query('SELECT COUNT(*) AS total FROM products WHERE category_id = $1', [req.params.id]);
+    if (parseInt(check.rows[0].total) > 0) {
       return res.status(400).json({ error: 'No puedes eliminar una categoría con productos asociados' });
     }
-    await pool.request().input('id', sql.Int, req.params.id).query('DELETE FROM categories WHERE id = @id');
+    await pool.query('DELETE FROM categories WHERE id = $1', [req.params.id]);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -111,32 +104,39 @@ app.delete('/api/categories/:id', async (req, res) => {
 // Listar / buscar / filtrar productos (con sus imágenes)
 app.get('/api/products', async (req, res) => {
   try {
-    const pool = await poolPromise;
     const search = req.query.search || '';
     const categoryId = req.query.category_id || null;
 
-    const result = await pool.request()
-      .input('search', sql.NVarChar, `%${search}%`)
-      .input('categoryId', sql.Int, categoryId)
-      .query(`
-        SELECT p.*, c.name AS category_name
-        FROM products p
-        JOIN categories c ON c.id = p.category_id
-        WHERE p.name LIKE @search
-          AND (@categoryId IS NULL OR p.category_id = @categoryId)
-        ORDER BY p.created_at DESC
-      `);
+    let query = `
+      SELECT p.*, c.name AS category_name
+      FROM products p
+      JOIN categories c ON c.id = p.category_id
+      WHERE p.name ILIKE $1
+    `;
+    const params = [`%${search}%`];
 
-    const products = result.recordset;
+    if (categoryId) {
+      params.push(categoryId);
+      query += ` AND p.category_id = $${params.length}`;
+    }
+
+    query += ` ORDER BY p.created_at DESC`;
+
+    const result = await pool.query(query, params);
+    const products = result.rows;
+
     if (products.length) {
       const ids = products.map(p => p.id);
-      const imgResult = await pool.request().query(`
-        SELECT * FROM product_images WHERE product_id IN (${ids.join(',')}) ORDER BY sort_order ASC
-      `);
+      const imgResult = await pool.query(
+        'SELECT * FROM product_images WHERE product_id = ANY($1::int[]) ORDER BY sort_order ASC',
+        [ids]
+      );
+      
       products.forEach(p => {
-        p.images = imgResult.recordset.filter(i => i.product_id === p.id);
+        p.images = imgResult.rows.filter(i => i.product_id === p.id);
       });
     }
+
     res.json(products);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -149,30 +149,30 @@ app.post('/api/products', upload.array('images', 10), async (req, res) => {
     const { name, category_id, description, price, stock } = req.body;
     if (!name || !category_id) return res.status(400).json({ error: 'Nombre y categoría son obligatorios' });
 
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('category_id', sql.Int, category_id)
-      .input('name', sql.NVarChar, name.trim())
-      .input('description', sql.NVarChar, description || null)
-      .input('price', sql.Decimal(12, 2), price || 0)
-      .input('stock', sql.Int, stock || 0)
-      .query(`
-        INSERT INTO products (category_id, name, description, price, stock)
-        OUTPUT INSERTED.*
-        VALUES (@category_id, @name, @description, @price, @stock)
-      `);
+    const insertQuery = `
+      INSERT INTO products (category_id, name, description, price, stock)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING *
+    `;
+    const result = await pool.query(insertQuery, [
+      category_id,
+      name.trim(),
+      description || null,
+      price || 0,
+      stock || 0
+    ]);
 
-    const product = result.recordset[0];
+    const product = result.rows[0];
 
     if (req.files && req.files.length) {
       for (let i = 0; i < req.files.length; i++) {
-        await pool.request()
-          .input('product_id', sql.Int, product.id)
-          .input('filename', sql.NVarChar, req.files[i].filename)
-          .input('sort_order', sql.Int, i)
-          .query('INSERT INTO product_images (product_id, filename, sort_order) VALUES (@product_id, @filename, @sort_order)');
+        await pool.query(
+          'INSERT INTO product_images (product_id, filename, sort_order) VALUES ($1, $2, $3)',
+          [product.id, req.files[i].filename, i]
+        );
       }
     }
+
     res.status(201).json(product);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -183,33 +183,36 @@ app.post('/api/products', upload.array('images', 10), async (req, res) => {
 app.put('/api/products/:id', upload.array('images', 10), async (req, res) => {
   try {
     const { name, category_id, description, price, stock } = req.body;
-    const pool = await poolPromise;
-    await pool.request()
-      .input('id', sql.Int, req.params.id)
-      .input('category_id', sql.Int, category_id)
-      .input('name', sql.NVarChar, name.trim())
-      .input('description', sql.NVarChar, description || null)
-      .input('price', sql.Decimal(12, 2), price || 0)
-      .input('stock', sql.Int, stock || 0)
-      .query(`
-        UPDATE products SET category_id=@category_id, name=@name, description=@description,
-               price=@price, stock=@stock
-        WHERE id=@id
-      `);
+    
+    const updateQuery = `
+      UPDATE products 
+      SET category_id = $1, name = $2, description = $3, price = $4, stock = $5
+      WHERE id = $6
+    `;
+    await pool.query(updateQuery, [
+      category_id,
+      name.trim(),
+      description || null,
+      price || 0,
+      stock || 0,
+      req.params.id
+    ]);
 
     if (req.files && req.files.length) {
-      const countResult = await pool.request()
-        .input('id', sql.Int, req.params.id)
-        .query('SELECT COUNT(*) AS total FROM product_images WHERE product_id = @id');
-      let nextOrder = countResult.recordset[0].total;
+      const countResult = await pool.query(
+        'SELECT COUNT(*) AS total FROM product_images WHERE product_id = $1',
+        [req.params.id]
+      );
+      let nextOrder = parseInt(countResult.rows[0].total);
+
       for (const file of req.files) {
-        await pool.request()
-          .input('product_id', sql.Int, req.params.id)
-          .input('filename', sql.NVarChar, file.filename)
-          .input('sort_order', sql.Int, nextOrder++)
-          .query('INSERT INTO product_images (product_id, filename, sort_order) VALUES (@product_id, @filename, @sort_order)');
+        await pool.query(
+          'INSERT INTO product_images (product_id, filename, sort_order) VALUES ($1, $2, $3)',
+          [req.params.id, file.filename, nextOrder++]
+        );
       }
     }
+
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -219,17 +222,15 @@ app.put('/api/products/:id', upload.array('images', 10), async (req, res) => {
 // Eliminar producto (borra también sus imágenes del disco)
 app.delete('/api/products/:id', async (req, res) => {
   try {
-    const pool = await poolPromise;
-    const imgs = await pool.request()
-      .input('id', sql.Int, req.params.id)
-      .query('SELECT filename FROM product_images WHERE product_id = @id');
+    const imgs = await pool.query('SELECT filename FROM product_images WHERE product_id = $1', [req.params.id]);
 
-    await pool.request().input('id', sql.Int, req.params.id).query('DELETE FROM products WHERE id = @id');
+    await pool.query('DELETE FROM products WHERE id = $1', [req.params.id]);
 
-    imgs.recordset.forEach(img => {
+    imgs.rows.forEach(img => {
       const filePath = path.join(IMAGES_DIR, img.filename);
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     });
+
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -239,16 +240,14 @@ app.delete('/api/products/:id', async (req, res) => {
 // Eliminar UNA imagen de un producto
 app.delete('/api/products/:id/images/:imageId', async (req, res) => {
   try {
-    const pool = await poolPromise;
-    const img = await pool.request()
-      .input('imageId', sql.Int, req.params.imageId)
-      .query('SELECT filename FROM product_images WHERE id = @imageId');
+    const img = await pool.query('SELECT filename FROM product_images WHERE id = $1', [req.params.imageId]);
 
-    if (img.recordset.length) {
-      const filePath = path.join(IMAGES_DIR, img.recordset[0].filename);
+    if (img.rows.length) {
+      const filePath = path.join(IMAGES_DIR, img.rows[0].filename);
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     }
-    await pool.request().input('imageId', sql.Int, req.params.imageId).query('DELETE FROM product_images WHERE id = @imageId');
+
+    await pool.query('DELETE FROM product_images WHERE id = $1', [req.params.imageId]);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -259,11 +258,12 @@ app.delete('/api/products/:id/images/:imageId', async (req, res) => {
 app.patch('/api/products/:id/stock', async (req, res) => {
   try {
     const { delta } = req.body;
-    const pool = await poolPromise;
-    await pool.request()
-      .input('id', sql.Int, req.params.id)
-      .input('delta', sql.Int, delta)
-      .query('UPDATE products SET stock = CASE WHEN stock + @delta < 0 THEN 0 ELSE stock + @delta END WHERE id = @id');
+    const query = `
+      UPDATE products 
+      SET stock = CASE WHEN stock + $1 < 0 THEN 0 ELSE stock + $1 END 
+      WHERE id = $2
+    `;
+    await pool.query(query, [delta, req.params.id]);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -274,20 +274,19 @@ app.patch('/api/products/:id/stock', async (req, res) => {
 
 app.post('/api/catalog/generate', async (req, res) => {
   try {
-    const pool = await poolPromise;
-    const cats = await pool.request().query('SELECT * FROM categories ORDER BY name ASC');
-    const prods = await pool.request().query(`
+    const cats = await pool.query('SELECT * FROM categories ORDER BY name ASC');
+    const prods = await pool.query(`
       SELECT p.*, c.name AS category_name FROM products p
       JOIN categories c ON c.id = p.category_id
-      WHERE p.active = 1
+      WHERE p.active = true OR p.active IS NULL
       ORDER BY p.name ASC
     `);
-    const imgs = await pool.request().query('SELECT * FROM product_images ORDER BY sort_order ASC');
+    const imgs = await pool.query('SELECT * FROM product_images ORDER BY sort_order ASC');
 
-    const categories = cats.recordset.map(c => ({
+    const categories = cats.rows.map(c => ({
       id: c.id,
       name: c.name,
-      products: prods.recordset
+      products: prods.rows
         .filter(p => p.category_id === c.id)
         .map(p => ({
           id: p.id,
@@ -295,7 +294,7 @@ app.post('/api/catalog/generate', async (req, res) => {
           description: p.description,
           price: p.price,
           stock: p.stock,
-          images: imgs.recordset.filter(i => i.product_id === p.id).map(i => i.filename)
+          images: imgs.rows.filter(i => i.product_id === p.id).map(i => i.filename)
         }))
     })).filter(c => c.products.length > 0);
 
@@ -306,13 +305,14 @@ app.post('/api/catalog/generate', async (req, res) => {
     const usedFiles = new Set();
     categories.forEach(c => c.products.forEach(p => p.images.forEach(f => usedFiles.add(f))));
     const outImagesDir = path.join(OUTPUT_DIR, 'images');
-    fs.readdirSync(outImagesDir).forEach(f => fs.unlinkSync(path.join(outImagesDir, f))); // limpia versión previa
+
+    fs.readdirSync(outImagesDir).forEach(f => fs.unlinkSync(path.join(outImagesDir, f)));
     usedFiles.forEach(f => {
       const src = path.join(IMAGES_DIR, f);
       if (fs.existsSync(src)) fs.copyFileSync(src, path.join(outImagesDir, f));
     });
 
-    // Copia la carpeta assets/ completa (portada, og-image) a output/assets
+    // Copia la carpeta assets/ completa a output/assets
     const outAssetsDir = path.join(OUTPUT_DIR, 'assets');
     if (fs.existsSync(outAssetsDir)) {
       fs.readdirSync(outAssetsDir).forEach(f => fs.unlinkSync(path.join(outAssetsDir, f)));
@@ -324,7 +324,7 @@ app.post('/api/catalog/generate', async (req, res) => {
       });
     }
 
-    res.json({ ok: true, path: 'output/index.html', totalProductos: prods.recordset.length, totalImagenes: usedFiles.size });
+    res.json({ ok: true, path: 'output/index.html', totalProductos: prods.rows.length, totalImagenes: usedFiles.size });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
