@@ -1,37 +1,3 @@
-// --- SISTEMA DE SEGURIDAD (ADMIN) ---
-const ADMIN_PASSWORD = "TuClaveSecreta123"; // <--- CAMBIA ESTA CONTRASEÑA POR LA TUYA
-
-document.addEventListener("DOMContentLoaded", () => {
-    const loginOverlay = document.getElementById("loginOverlay");
-    const passInput = document.getElementById("adminPassInput");
-    const loginBtn = document.getElementById("adminLoginBtn");
-    const errorMsg = document.getElementById("adminErrorMsg");
-
-    // Verificar si ya se había ingresado la contraseña antes en este navegador
-    if (sessionStorage.getItem("admin_authenticated") === "true") {
-        if (loginOverlay) loginOverlay.style.display = "none";
-    }
-
-    function validarPassword() {
-        if (passInput.value === ADMIN_PASSWORD) {
-            sessionStorage.setItem("admin_authenticated", "true");
-            if (loginOverlay) loginOverlay.style.display = "none";
-        } else {
-            if (errorMsg) errorMsg.style.display = "block";
-            passInput.value = "";
-        }
-    }
-
-    if (loginBtn) {
-        loginBtn.addEventListener("click", validarPassword);
-    }
-
-    if (passInput) {
-        passInput.addEventListener("keypress", (e) => {
-            if (e.key === "Enter") validarPassword();
-        });
-    }
-});
 const API = ''; // mismo origen (http://localhost:3000)
 
 // ---------- Utilidades ----------
