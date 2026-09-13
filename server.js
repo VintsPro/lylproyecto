@@ -7,32 +7,32 @@ const fs = require('fs');
 const pool = require('./db'); // Conexión a PostgreSQL (Supabase)
 const { buildCatalogHtml } = require('./catalogTemplate');
 
+// Configuración de Cloudinary para almacenamiento en la nube
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Carpetas públicas: /images sirve las fotos, /public sirve el panel admin
-const IMAGES_DIR = path.join(__dirname, 'images');
+// Carpetas públicas (ya no requerimos la carpeta local 'images' para la nube)
 const ASSETS_DIR = path.join(__dirname, 'assets');
 const OUTPUT_DIR = path.join(__dirname, 'output');
 
-if (!fs.existsSync(IMAGES_DIR)) fs.mkdirSync(IMAGES_DIR, { recursive: true });
 if (!fs.existsSync(ASSETS_DIR)) fs.mkdirSync(ASSETS_DIR, { recursive: true });
 if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-if (!fs.existsSync(path.join(OUTPUT_DIR, 'images'))) fs.mkdirSync(path.join(OUTPUT_DIR, 'images'), { recursive: true });
 if (!fs.existsSync(path.join(OUTPUT_DIR, 'assets'))) fs.mkdirSync(path.join(OUTPUT_DIR, 'assets'), { recursive: true });
 
-app.use('/images', express.static(IMAGES_DIR));
 app.use('/assets', express.static(ASSETS_DIR));
 app.use('/', express.static(path.join(__dirname, 'public')));
 
-// Subida de imágenes local (multer)
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, IMAGES_DIR),
-  filename: (req, file, cb) => {
-    const safe = file.originalname.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9.\-_]/g, '');
-    cb(null, Date.now() + '-' + Math.round(Math.random() * 1e6) + '-' + safe);
-  }
+// Configuración del almacenamiento de Multer directo a Cloudinary
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'lyl-makeup-products', // Carpeta creada automáticamente en Cloudinary
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+  },
 });
 const upload = multer({ storage });
 
@@ -118,7 +118,7 @@ app.get('/api/categories/:id', async (req, res) => {
 
 // ==================== PRODUCTOS ====================
 
-// Listar / buscar / filtrar productos (con sus imágenes)
+// Listar / buscar / filtrar productos (con sus imágenes de Cloudinary)
 app.get('/api/products', async (req, res) => {
   try {
     const search = req.query.search || '';
@@ -160,7 +160,7 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
-// Crear producto (con varias imágenes)
+// Crear producto (sube las imágenes directo a Cloudinary y guarda la URL completa)
 app.post('/api/products', upload.array('images', 10), async (req, res) => {
   try {
     const { name, category_id, description, price, stock } = req.body;
@@ -183,9 +183,10 @@ app.post('/api/products', upload.array('images', 10), async (req, res) => {
 
     if (req.files && req.files.length) {
       for (let i = 0; i < req.files.length; i++) {
+        // req.files[i].path contiene la URL pública y segura devuelta por Cloudinary
         await pool.query(
           'INSERT INTO product_images (product_id, filename, sort_order) VALUES ($1, $2, $3)',
-          [product.id, req.files[i].filename, i]
+          [product.id, req.files[i].path, i]
         );
       }
     }
@@ -196,7 +197,7 @@ app.post('/api/products', upload.array('images', 10), async (req, res) => {
   }
 });
 
-// Editar producto (puede agregar más imágenes)
+// Editar producto (permite agregar más imágenes a Cloudinary)
 app.put('/api/products/:id', upload.array('images', 10), async (req, res) => {
   try {
     const { name, category_id, description, price, stock } = req.body;
@@ -225,7 +226,7 @@ app.put('/api/products/:id', upload.array('images', 10), async (req, res) => {
       for (const file of req.files) {
         await pool.query(
           'INSERT INTO product_images (product_id, filename, sort_order) VALUES ($1, $2, $3)',
-          [req.params.id, file.filename, nextOrder++]
+          [req.params.id, file.path, nextOrder++]
         );
       }
     }
@@ -236,34 +237,20 @@ app.put('/api/products/:id', upload.array('images', 10), async (req, res) => {
   }
 });
 
-// Eliminar producto (borra también sus imágenes del disco)
+// Eliminar producto (limpia sus registros de imágenes en la base de datos)
 app.delete('/api/products/:id', async (req, res) => {
   try {
-    const imgs = await pool.query('SELECT filename FROM product_images WHERE product_id = $1', [req.params.id]);
-
+    await pool.query('DELETE FROM product_images WHERE product_id = $1', [req.params.id]);
     await pool.query('DELETE FROM products WHERE id = $1', [req.params.id]);
-
-    imgs.rows.forEach(img => {
-      const filePath = path.join(IMAGES_DIR, img.filename);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    });
-
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Eliminar UNA imagen de un producto
+// Eliminar UNA imagen específica de un producto
 app.delete('/api/products/:id/images/:imageId', async (req, res) => {
   try {
-    const img = await pool.query('SELECT filename FROM product_images WHERE id = $1', [req.params.imageId]);
-
-    if (img.rows.length) {
-      const filePath = path.join(IMAGES_DIR, img.rows[0].filename);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    }
-
     await pool.query('DELETE FROM product_images WHERE id = $1', [req.params.imageId]);
     res.json({ ok: true });
   } catch (err) {
@@ -311,23 +298,13 @@ app.post('/api/catalog/generate', async (req, res) => {
           description: p.description,
           price: p.price,
           stock: p.stock,
+          // Como ya guardamos la URL completa de Cloudinary, la pasamos directamente sin copiar archivos locales
           images: imgs.rows.filter(i => i.product_id === p.id).map(i => i.filename)
         }))
     })).filter(c => c.products.length > 0);
 
     const html = buildCatalogHtml(categories);
     fs.writeFileSync(path.join(OUTPUT_DIR, 'index.html'), html, 'utf8');
-
-    // Copia solo las imágenes usadas en el catálogo a output/images
-    const usedFiles = new Set();
-    categories.forEach(c => c.products.forEach(p => p.images.forEach(f => usedFiles.add(f))));
-    const outImagesDir = path.join(OUTPUT_DIR, 'images');
-
-    fs.readdirSync(outImagesDir).forEach(f => fs.unlinkSync(path.join(outImagesDir, f)));
-    usedFiles.forEach(f => {
-      const src = path.join(IMAGES_DIR, f);
-      if (fs.existsSync(src)) fs.copyFileSync(src, path.join(outImagesDir, f));
-    });
 
     // Copia la carpeta assets/ completa a output/assets
     const outAssetsDir = path.join(OUTPUT_DIR, 'assets');
@@ -341,7 +318,7 @@ app.post('/api/catalog/generate', async (req, res) => {
       });
     }
 
-    res.json({ ok: true, path: 'output/index.html', totalProductos: prods.rows.length, totalImagenes: usedFiles.size });
+    res.json({ ok: true, path: 'output/index.html', totalProductos: prods.rows.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
