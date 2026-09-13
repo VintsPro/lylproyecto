@@ -45,7 +45,7 @@
   nav.pills a{flex:none;padding:7px 15px;border:1px solid var(--line);border-radius:100px;font-size:13px;color:var(--taupe);transition:all .2s ease;}
   nav.pills a:hover{background:var(--rose);border-color:var(--rose);color:#fff;}
 
-  /* ===== Hero (portada) ===== */
+  /* ===== Hero ===== */
   .hero{max-width:1200px;margin:0 auto;padding:56px 20px 30px;display:grid;grid-template-columns:1.1fr 0.9fr;gap:48px;align-items:center;}
   .hero-eyebrow{font-size:13px;letter-spacing:.14em;color:var(--gold);font-weight:600;margin-bottom:14px;}
   .hero h1{font-size:clamp(36px,5vw,58px);line-height:1.04;}
@@ -83,10 +83,8 @@
   .plist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;}
   .plist li.prow{display:grid;grid-template-columns:1fr auto;grid-template-areas:"name price" "qty add";row-gap:8px;column-gap:10px;align-items:center;border-bottom:1px dashed var(--line);padding-bottom:10px;}
   .plist li.prow:last-child{border-bottom:none;padding-bottom:0;}
-  .plist li.prow .pname{grid-area:name;font-size:13.5px;color:var(--ink);}
+  .plist li.prow .pname{grid-area:name;font-size:13.5px;color:var(--ink);font-weight:500;}
   .plist li.prow .price{grid-area:price;color:var(--rose-deep);font-weight:600;font-size:13.5px;white-space:nowrap;justify-self:end;}
-  .plist li.prow.out{grid-template-columns:1fr auto;grid-template-areas:"name price";opacity:.65;}
-  .tag.out{color:#9a5b5b;font-size:11.5px;font-style:italic;white-space:nowrap;}
   .plist li.prow .qty{grid-area:qty;display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:100px;overflow:hidden;width:fit-content;}
   .plist li.prow .qbtn{background:var(--paper);border:none;width:28px;height:28px;font-size:15px;line-height:1;color:var(--ink);cursor:pointer;}
   .prow .qbtn:hover{background:var(--rose);color:#fff;}
@@ -94,6 +92,7 @@
   .plist li.prow .add-btn{grid-area:add;justify-self:end;font-size:12px;font-weight:600;background:var(--rose-deep);color:#fff;border:none;padding:7px 14px;border-radius:100px;cursor:pointer;transition:transform .15s ease, background .2s ease;}
   .prow .add-btn:hover{transform:translateY(-1px);background:var(--ink);}
   .plist li.prow .add-btn.added{background:#4c8a5e;}
+
   footer{margin-top:70px;background:var(--ink);color:#F3E4D8;padding:56px 20px 30px;}
   .footer-inner{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:40px;}
   footer h3{color:#fff;font-family:'Fraunces',serif;font-size:20px;margin-bottom:12px;}
@@ -131,6 +130,7 @@
   .clear-btn{background:none;border:none;color:var(--taupe);font-size:12.5px;text-decoration:underline;cursor:pointer;align-self:center;}
   .toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,20px);background:var(--ink);color:#fff;padding:11px 20px;border-radius:100px;font-size:13.5px;opacity:0;transition:all .25s ease;z-index:90;pointer-events:none;}
   .toast.show{opacity:1;transform:translate(-50%,0);}
+  .loading-msg{text-align:center;padding:50px 20px;font-size:16px;color:var(--taupe);}
   @media (max-width:860px){
     .hero{grid-template-columns:1fr;padding-top:34px;}
     .hero-art{order:-1;}
@@ -147,7 +147,9 @@
 <header class="site">
   <div class="nav-inner">
     <div class="brandmark">L&amp;L Makeup</div>
-    <nav class="pills"><a href="#ani-k">Ani-k</a><a href="#atenea">Atenea</a><a href="#bombshell">Bombshell</a><a href="#trendy">Trendy</a></nav>
+    <nav class="pills" id="navCategoryPills">
+      <!-- Se llenan dinámicamente -->
+    </nav>
   </div>
 </header>
 
@@ -158,7 +160,7 @@
     <p class="lead">Tienda virtual con las marcas más queridas del momento. Asesoría personalizada y envíos a toda Colombia.</p>
     <div class="cta-row">
       <a class="btn primary" href="https://wa.me/573216669326?text=Hola!%20Vi%20el%20cat%C3%A1logo%20y%20quiero%20asesor%C3%ADa." target="_blank" rel="noopener">Pedir asesoría por WhatsApp</a>
-      <a class="btn ghost" href="#ani-k">Ver el catálogo</a>
+      <a class="btn ghost" href="#catalog-container">Ver el catálogo</a>
     </div>
     <p class="hero-quote">&quot;Puedo tener mil problemas, pero mi maquillaje nunca será uno de ellos.&quot;</p>
   </div>
@@ -170,7 +172,7 @@
 <section class="info">
   <div class="info-inner">
     <div class="info-item">
-      <span class="num">4</span>
+      <span class="num" id="catCountNum">-</span>
       <h3>Categorías</h3>
       <p>Todas nuestras marcas y líneas de producto, en un solo lugar.</p>
     </div>
@@ -192,130 +194,10 @@
   </div>
 </section>
 
-
-    <section class="brand" id="ani-k">
-      <div class="brand-head">
-        <h2>Ani-k</h2>
-      </div>
-      <div class="grid">
-        
-    <figure class="card">
-      <div class="imgwrap" data-images='["images/1789266156659-397892-DK_Labial-Mate_seccion-5-tonos-2.jpg","images/1789266156664-751602-tonos_de_labial_que_son_perfectos_para_el_dia.jpg"]'>
-        <img src="images/1789266156659-397892-DK_Labial-Mate_seccion-5-tonos-2.jpg" loading="lazy" alt="rubor">
-        <button type="button" class="car-btn prev" aria-label="Anterior">‹</button>
-       <button type="button" class="car-btn next" aria-label="Siguiente">›</button>
-      </div>
-      <figcaption>
-        <p class="pdesc">precioso producto para tu piel askdjfnklasdnfsdajk</p>
-        <ul class="plist">
-          <li class="prow" data-id="p3" data-name="rubor" data-price="34000">
-        <span class="pname">rubor</span>
-        <span class="price">$34.000</span>
-        <span class="qty">
-          <button type="button" class="qbtn minus" aria-label="Menos">−</button>
-          <input type="number" class="qty-input" value="1" min="1" max="99" inputmode="numeric">
-          <button type="button" class="qbtn plus" aria-label="Más">+</button>
-        </span>
-        <button type="button" class="add-btn">Agregar</button>
-      </li>
-        </ul>
-      </figcaption>
-    </figure>
-      </div>
-    </section>
-
-    <section class="brand" id="atenea">
-      <div class="brand-head">
-        <h2>Atenea</h2>
-      </div>
-      <div class="grid">
-        
-    <figure class="card">
-      <div class="imgwrap" data-images='["images/1789264801277-388386-DK_Labial-Mate_seccion-5-tonos-2.jpg","images/1789264801284-30616-tonos_de_labial_que_son_perfectos_para_el_dia.jpg"]'>
-        <img src="images/1789264801277-388386-DK_Labial-Mate_seccion-5-tonos-2.jpg" loading="lazy" alt="Labial">
-        <button type="button" class="car-btn prev" aria-label="Anterior">‹</button>
-       <button type="button" class="car-btn next" aria-label="Siguiente">›</button>
-      </div>
-      <figcaption>
-        <p class="pdesc">producto que aumnetara tus labios</p>
-        <ul class="plist">
-          <li class="prow" data-id="p1" data-name="Labial" data-price="12000">
-        <span class="pname">Labial</span>
-        <span class="price">$12.000</span>
-        <span class="qty">
-          <button type="button" class="qbtn minus" aria-label="Menos">−</button>
-          <input type="number" class="qty-input" value="1" min="1" max="99" inputmode="numeric">
-          <button type="button" class="qbtn plus" aria-label="Más">+</button>
-        </span>
-        <button type="button" class="add-btn">Agregar</button>
-      </li>
-        </ul>
-      </figcaption>
-    </figure>
-      </div>
-    </section>
-
-    <section class="brand" id="bombshell">
-      <div class="brand-head">
-        <h2>Bombshell</h2>
-      </div>
-      <div class="grid">
-        
-    <figure class="card">
-      <div class="imgwrap" data-images='["images/1789268969150-605374-DK_Labial-Mate_seccion-5-tonos-2.jpg","images/1789268969160-183547-tonos_de_labial_que_son_perfectos_para_el_dia.jpg"]'>
-        <img src="images/1789268969150-605374-DK_Labial-Mate_seccion-5-tonos-2.jpg" loading="lazy" alt="paleta de colores">
-        <button type="button" class="car-btn prev" aria-label="Anterior">‹</button>
-       <button type="button" class="car-btn next" aria-label="Siguiente">›</button>
-      </div>
-      <figcaption>
-        <p class="pdesc">peletasg dafc dslnfgvcjkñdsxfkvjdfgfdg</p>
-        <ul class="plist">
-          <li class="prow" data-id="p5" data-name="paleta de colores" data-price="54000">
-        <span class="pname">paleta de colores</span>
-        <span class="price">$54.000</span>
-        <span class="qty">
-          <button type="button" class="qbtn minus" aria-label="Menos">−</button>
-          <input type="number" class="qty-input" value="1" min="1" max="99" inputmode="numeric">
-          <button type="button" class="qbtn plus" aria-label="Más">+</button>
-        </span>
-        <button type="button" class="add-btn">Agregar</button>
-      </li>
-        </ul>
-      </figcaption>
-    </figure>
-      </div>
-    </section>
-
-    <section class="brand" id="trendy">
-      <div class="brand-head">
-        <h2>Trendy</h2>
-      </div>
-      <div class="grid">
-        
-    <figure class="card">
-      <div class="imgwrap" data-images='["images/1789269068797-490021-DK_Labial-Mate_seccion-5-tonos-2.jpg","images/1789269068802-376485-tonos_de_labial_que_son_perfectos_para_el_dia.jpg"]'>
-        <img src="images/1789269068797-490021-DK_Labial-Mate_seccion-5-tonos-2.jpg" loading="lazy" alt="fnsadijf">
-        <button type="button" class="car-btn prev" aria-label="Anterior">‹</button>
-       <button type="button" class="car-btn next" aria-label="Siguiente">›</button>
-      </div>
-      <figcaption>
-        <p class="pdesc">sdfsadgfsdgf</p>
-        <ul class="plist">
-          <li class="prow" data-id="p6" data-name="fnsadijf" data-price="12300">
-        <span class="pname">fnsadijf</span>
-        <span class="price">$12.300</span>
-        <span class="qty">
-          <button type="button" class="qbtn minus" aria-label="Menos">−</button>
-          <input type="number" class="qty-input" value="1" min="1" max="99" inputmode="numeric">
-          <button type="button" class="qbtn plus" aria-label="Más">+</button>
-        </span>
-        <button type="button" class="add-btn">Agregar</button>
-      </li>
-        </ul>
-      </figcaption>
-    </figure>
-      </div>
-    </section>
+<!-- Contenedor dinámico donde Render renderizará los productos por categoría -->
+<div id="catalog-container">
+  <div class="loading-msg">Cargando productos del catálogo...</div>
+</div>
 
 <footer>
   <div class="footer-inner">
@@ -333,7 +215,7 @@
     </div>
     <div>
       <h3>Categorías</h3>
-      <ul><li><a href="#ani-k">Ani-k</a></li><li><a href="#atenea">Atenea</a></li><li><a href="#bombshell">Bombshell</a></li><li><a href="#trendy">Trendy</a></li></ul>
+      <ul id="footerCategoryList"></ul>
     </div>
   </div>
   <div class="foot-bottom">
@@ -376,31 +258,127 @@
 
 <script>
 (function(){
-  // ---- Carrusel de imágenes por producto ----
-  document.querySelectorAll('.imgwrap[data-images]').forEach(function(wrap){
-    var images = JSON.parse(wrap.getAttribute('data-images'));
-    var idx = 0;
-    var img = wrap.querySelector('img');
-    wrap.querySelector('.prev').addEventListener('click', function(){
-      idx = (idx - 1 + images.length) % images.length;
-      img.src = images[idx];
-    });
-    wrap.querySelector('.next').addEventListener('click', function(){
-      idx = (idx + 1) % images.length;
-      img.src = images[idx];
-    });
-  });
-
-  // ---- Carrito (igual que el catálogo original) ----
+  var API_BASE = "https://lylproyecto.onrender.com";
+  var API_PRODUCTS = API_BASE + "/api/products";
   var WA_NUMBER = "573216669326";
   var CART_KEY = "catalogo_cart_v1";
   var cart = {};
 
+  function formatCOP(n){ return "$" + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, "."); }
+  function slugify(text) { return text.toString().toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\w\-]+/g, ''); }
+
+  // Cargar catálogo desde Render y armar el DOM
+  async function fetchCatalog() {
+    var container = document.getElementById('catalog-container');
+    try {
+      var res = await fetch(API_PRODUCTS);
+      if(!res.ok) throw new Error("Error al obtener productos");
+      var products = await res.json();
+
+      if(!products || products.length === 0) {
+        container.innerHTML = '<div class="loading-msg">No hay productos disponibles por el momento.</div>';
+        return;
+      }
+
+      // Agrupar productos por categoría/marca
+      var categories = {};
+      products.forEach(function(p){
+        var cat = p.category || p.brand || "General";
+        if(!categories[cat]) categories[cat] = [];
+        categories[cat].push(p);
+      });
+
+      var catNames = Object.keys(categories);
+      document.getElementById('catCountNum').textContent = catNames.length;
+
+      // Renderizar Nav Pills y Footer Links
+      var navPills = document.getElementById('navCategoryPills');
+      var footList = document.getElementById('footerCategoryList');
+      navPills.innerHTML = catNames.map(function(c){ return '<a href="#' + slugify(c) + '">' + c + '</a>'; }).join('');
+      footList.innerHTML = catNames.map(function(c){ return '<li><a href="#' + slugify(c) + '">' + c + '</a></li>'; }).join('');
+
+      // Renderizar Secciones de Productos
+      var html = "";
+      catNames.forEach(function(cat){
+        var slug = slugify(cat);
+        html += '<section class="brand" id="' + slug + '">'
+              + '  <div class="brand-head"><h2>' + cat + '</h2></div>'
+              + '  <div class="grid">';
+
+        categories[cat].forEach(function(p){
+          var images = [];
+          if(p.images && p.images.length > 0) {
+            images = p.images.map(function(img){
+              return img.filename ? (API_BASE + '/images/' + img.filename) : img;
+            });
+          } else if(p.image_url) {
+            images = [p.image_url];
+          } else {
+            images = ['https://via.placeholder.com/300x260?text=L%26L+Makeup'];
+          }
+
+          var firstImg = images[0];
+          var imagesJson = JSON.stringify(images).replace(/'/g, "&apos;");
+
+          html += '<figure class="card">'
+                + '  <div class="imgwrap" data-images=\'' + imagesJson + '\'>'
+                + '    <img src="' + firstImg + '" loading="lazy" alt="' + p.name + '">'
+                + (images.length > 1 ? '    <button type="button" class="car-btn prev" aria-label="Anterior">‹</button><button type="button" class="car-btn next" aria-label="Siguiente">›</button>' : '')
+                + '  </div>'
+                + '  <figcaption>'
+                + '    <p class="pdesc">' + (p.description || '') + '</p>'
+                + '    <ul class="plist">'
+                + '      <li class="prow" data-id="' + (p.id || p._id) + '" data-name="' + p.name + '" data-price="' + p.price + '">'
+                + '        <span class="pname">' + p.name + '</span>'
+                + '        <span class="price">' + formatCOP(p.price) + '</span>'
+                + '        <span class="qty">'
+                + '          <button type="button" class="qbtn minus" aria-label="Menos">−</button>'
+                + '          <input type="number" class="qty-input" value="1" min="1" max="99" inputmode="numeric">'
+                + '          <button type="button" class="qbtn plus" aria-label="Más">+</button>'
+                + '        </span>'
+                + '        <button type="button" class="add-btn">Agregar</button>'
+                + '      </li>'
+                + '    </ul>'
+                + '  </figcaption>'
+                + '</figure>';
+        });
+
+        html += '  </div></section>';
+      });
+
+      container.innerHTML = html;
+      initCarousels();
+
+    } catch(err) {
+      console.error(err);
+      container.innerHTML = '<div class="loading-msg">Error al cargar el catálogo. Intenta recargar la página.</div>';
+    }
+  }
+
+  function initCarousels(){
+    document.querySelectorAll('.imgwrap[data-images]').forEach(function(wrap){
+      var images = JSON.parse(wrap.getAttribute('data-images'));
+      if(images.length <= 1) return;
+      var idx = 0;
+      var img = wrap.querySelector('img');
+      var prev = wrap.querySelector('.prev');
+      var next = wrap.querySelector('.next');
+      if(prev) prev.addEventListener('click', function(){
+        idx = (idx - 1 + images.length) % images.length;
+        img.src = images[idx];
+      });
+      if(next) next.addEventListener('click', function(){
+        idx = (idx + 1) % images.length;
+        img.src = images[idx];
+      });
+    });
+  }
+
+  // ---- Lógica del Carrito ----
   function loadCart(){
     try{ var raw = localStorage.getItem(CART_KEY); cart = raw ? JSON.parse(raw) : {}; }catch(e){ cart = {}; }
   }
   function saveCart(){ try{ localStorage.setItem(CART_KEY, JSON.stringify(cart)); }catch(e){} }
-  function formatCOP(n){ return "$" + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, "."); }
 
   function updateBadge(){
     var count = 0;
@@ -468,7 +446,7 @@
       var row = e.target.closest('.prow');
       var id = row.getAttribute('data-id');
       var name = row.getAttribute('data-name');
-      var price = parseInt(row.getAttribute('data-price'), 10);
+      var price = parseFloat(row.getAttribute('data-price'));
       var qty = parseInt(row.querySelector('.qty-input').value, 10) || 1;
       addToCart(id, name, price, qty);
       e.target.textContent = 'Agregado ✓'; e.target.classList.add('added');
@@ -517,6 +495,7 @@
 
   loadCart();
   renderCart();
+  fetchCatalog();
 })();
 </script>
 </body>
