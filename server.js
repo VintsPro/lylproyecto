@@ -99,6 +99,23 @@ app.delete('/api/categories/:id', async (req, res) => {
   }
 });
 
+// Obtener una categoría específica por su ID
+app.get('/api/categories/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const query = 'SELECT id, name, created_at FROM categories WHERE id = $1';
+    const result = await pool.query(query, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Categoría no encontrada' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ==================== PRODUCTOS ====================
 
 // Listar / buscar / filtrar productos (con sus imágenes)
